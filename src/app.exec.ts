@@ -6,8 +6,9 @@ import { run, undent, pkg as pkgutils, RunError, TeaError, UsageError } from "ut
 import * as semver from "semver"
 import Path from "path"
 import { isNumber } from "is_what"
-import { VirtualEnv } from "./hooks/useVirtualEnv.ts"
-import { red, gray, Logger } from "./hooks/useLogger.ts"
+import { VirtualEnv } from "hooks/useVirtualEnv.ts"
+import { red, gray, Logger } from "hooks/useLogger.ts"
+import { Interpreter } from "hooks/usePantry.ts";
 
 export default async function exec(opts: Args) {
   const { debug, verbosity, ...flags } = useFlags()
@@ -183,7 +184,7 @@ async function abracadabra(opts: Args): Promise<RV> {
 
       if (magic) {
         // pushing at front so (any) later specification tromps it
-        const unshift = (project: string, ...new_args: string[]) => {
+        const unshift = ({ project, args: new_args }: Interpreter) => {
           if (!yaml?.pkgs.length) {
             pkgs.unshift({ project, constraint: new semver.Range("*") })
           }
@@ -192,27 +193,8 @@ async function abracadabra(opts: Args): Promise<RV> {
           }
         }
 
-        //FIXME no hardcode! pkg.yml knows these things
-        switch (path.extname()) {
-        case ".py":
-          unshift("python.org", "python")
-          break
-        case ".js":
-          unshift("nodejs.org", "node")
-          break
-        case ".ts":
-          unshift("deno.land", "deno", "run")
-          break
-        case ".go":
-          unshift("go.dev", "go", "run")
-          break
-        case ".pl":
-          unshift("perl.org", "perl")
-          break
-        case ".rb":
-          unshift("ruby-lang.org", "ruby")
-          break
-        }
+        const interpreter = await usePantry().getInterpreter(path.extname())
+        if (interpreter) unshift(interpreter)
       }
 
       if (yaml) {
